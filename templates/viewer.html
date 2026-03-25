@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GestureSlide — Viewer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="viewer-body">
+
+<div class="viewer-layout">
+
+  <!-- ── LEFT: SLIDE DISPLAY ─────────────────────────── -->
+  <div class="slide-panel">
+
+    <div class="slide-topbar">
+      <a href="/" class="back-btn">← Upload New</a>
+      <div class="slide-title" id="presName">Presentation</div>
+      <div class="status-badge" id="statusBadge">
+        <span class="dot pulse green" id="statusDot"></span>
+        <span id="statusText">ACTIVE</span>
+      </div>
+    </div>
+
+    <!-- Main slide display -->
+    <div class="slide-stage" id="slideStage">
+      <img id="slideImg" src="" alt="Slide" draggable="false"/>
+      <!-- Demo colored slide fallback -->
+      <div id="slideFallback" class="slide-fallback" style="display:none">
+        <div class="fallback-num" id="fallbackNum">1</div>
+        <div class="fallback-title" id="fallbackTitle">Loading…</div>
+        <div class="fallback-sub" id="fallbackSub"></div>
+      </div>
+      <!-- Laser pointer dot -->
+      <div class="laser-dot" id="laserDot"></div>
+      <!-- Lock overlay -->
+      <div class="lock-overlay" id="lockOverlay" style="display:none">
+        <div class="lock-icon">🔒</div>
+        <div class="lock-text">SYSTEM LOCKED</div>
+        <div class="lock-sub">Show a FIST gesture to unlock</div>
+      </div>
+    </div>
+
+    <!-- Slide controls bar -->
+    <div class="slide-controls">
+      <button class="ctrl-btn" id="prevBtn" onclick="changeSlide('prev')">‹ Prev</button>
+      <div class="slide-counter">
+        <span id="curSlide">1</span> / <span id="totSlide">1</span>
+      </div>
+      <button class="ctrl-btn" id="nextBtn" onclick="changeSlide('next')">Next ›</button>
+    </div>
+
+    <!-- Thumbnail strip -->
+    <div class="thumb-strip" id="thumbStrip"></div>
+  </div>
+
+  <!-- ── RIGHT: SIDEBAR ─────────────────────────── -->
+  <div class="sidebar">
+
+    <!-- Camera feed -->
+    <div class="cam-section">
+      <div class="sidebar-label">Camera Feed</div>
+      <div class="cam-wrapper">
+        <video id="camVideo" autoplay muted playsinline></video>
+        <canvas id="camCanvas"></canvas>
+        <div class="cam-overlay-label" id="gestureName">No gesture</div>
+        <div class="cam-status" id="camStatus">Starting camera…</div>
+      </div>
+      <button class="btn-cam" id="camBtn" onclick="toggleCamera()">📷 Start Camera</button>
+    </div>
+
+    <!-- Gesture Guide -->
+    <div class="guide-section">
+      <div class="sidebar-label">Gesture Guide</div>
+      <div class="gesture-list">
+        <div class="gesture-row" id="g-next">
+          <span class="g-icon">☝️</span>
+          <div class="g-info">
+            <div class="g-name">1 Finger Up</div>
+            <div class="g-action">Next Slide →</div>
+          </div>
+          <div class="g-indicator" id="gi-next"></div>
+        </div>
+        <div class="gesture-row" id="g-prev">
+          <span class="g-icon">✌️</span>
+          <div class="g-info">
+            <div class="g-name">2 Fingers Up</div>
+            <div class="g-action">← Previous Slide</div>
+          </div>
+          <div class="g-indicator" id="gi-prev"></div>
+        </div>
+        <div class="gesture-row" id="g-fist">
+          <span class="g-icon">✊</span>
+          <div class="g-info">
+            <div class="g-name">Fist</div>
+            <div class="g-action">Lock / Unlock</div>
+          </div>
+          <div class="g-indicator" id="gi-fist"></div>
+        </div>
+        <div class="gesture-row" id="g-point">
+          <span class="g-icon">👆</span>
+          <div class="g-info">
+            <div class="g-name">Index Point</div>
+            <div class="g-action">Laser Pointer</div>
+          </div>
+          <div class="g-indicator" id="gi-point"></div>
+        </div>
+        <div class="gesture-row" id="g-pinch">
+          <span class="g-icon">🤏</span>
+          <div class="g-info">
+            <div class="g-name">Pinch</div>
+            <div class="g-action">Click / Select</div>
+          </div>
+          <div class="g-indicator" id="gi-pinch"></div>
+        </div>
+        <div class="gesture-row" id="g-palm">
+          <span class="g-icon">🖐️</span>
+          <div class="g-info">
+            <div class="g-name">Open Palm</div>
+            <div class="g-action">Fullscreen Slideshow</div>
+          </div>
+          <div class="g-indicator" id="gi-palm"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- System Status -->
+    <div class="status-section">
+      <div class="sidebar-label">System Status</div>
+      <div class="status-grid">
+        <div class="stat-box">
+          <div class="stat-val" id="statSlide">—</div>
+          <div class="stat-key">Current Slide</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="statTotal">—</div>
+          <div class="stat-key">Total Slides</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="statGesture">—</div>
+          <div class="stat-key">Last Gesture</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-val" id="statLock">OPEN</div>
+          <div class="stat-key">Lock State</div>
+        </div>
+      </div>
+      <button class="btn-lock" onclick="toggleLock()">🔒 Toggle Lock</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- MediaPipe CDN - pinned versions for reliability -->
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3/camera_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js" crossorigin="anonymous"></script>
+<script src="/static/js/gesture.js"></script>
+<script src="/static/js/viewer.js"></script>
+</body>
+</html>

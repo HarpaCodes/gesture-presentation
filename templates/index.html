@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GestureSlide — Upload</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- Animated background grid -->
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="upload-page">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon">◈</span>
+      <span class="logo-text">GestureSlide</span>
+    </div>
+    <div class="header-badge">
+      <span class="dot pulse"></span>
+      <span>MediaPipe Powered</span>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-label">Hand Gesture Presentation Control</div>
+    <h1 class="hero-title">Present With<br><span class="accent">Your Hands.</span></h1>
+    <p class="hero-sub">Upload your slides and control them using natural hand gestures via your webcam. No clickers, no keyboards.</p>
+  </section>
+
+  <!-- Upload Card -->
+  <div class="upload-card" id="uploadCard">
+    <div class="upload-zone" id="dropZone">
+      <div class="upload-icon">⬆</div>
+      <div class="upload-title">Drop your presentation here</div>
+      <div class="upload-sub">PDF, PPT, PPTX, or Image files</div>
+      <div class="upload-or">— or —</div>
+      <label class="btn-upload" for="fileInput">Browse Files</label>
+      <input type="file" id="fileInput" accept=".pdf,.ppt,.pptx,.png,.jpg,.jpeg" hidden>
+    </div>
+
+    <!-- Progress (hidden until upload) -->
+    <div class="upload-progress" id="uploadProgress" style="display:none">
+      <div class="progress-label" id="progressLabel">Uploading…</div>
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-sub" id="progressSub">Processing slides…</div>
+    </div>
+  </div>
+
+  <!-- Gesture Guide Preview -->
+  <section class="gesture-preview">
+    <div class="section-label">Gesture Reference</div>
+    <div class="gesture-grid">
+      <div class="gesture-chip">
+        <span class="gesture-emoji">☝️</span>
+        <div>
+          <div class="gesture-name">1 Finger</div>
+          <div class="gesture-desc">Next Slide</div>
+        </div>
+      </div>
+      <div class="gesture-chip">
+        <span class="gesture-emoji">✌️</span>
+        <div>
+          <div class="gesture-name">2 Fingers</div>
+          <div class="gesture-desc">Previous Slide</div>
+        </div>
+      </div>
+      <div class="gesture-chip">
+        <span class="gesture-emoji">✊</span>
+        <div>
+          <div class="gesture-name">Fist</div>
+          <div class="gesture-desc">Lock / Unlock</div>
+        </div>
+      </div>
+      <div class="gesture-chip">
+        <span class="gesture-emoji">👆</span>
+        <div>
+          <div class="gesture-name">Index Move</div>
+          <div class="gesture-desc">Laser Pointer</div>
+        </div>
+      </div>
+      <div class="gesture-chip">
+        <span class="gesture-emoji">🤏</span>
+        <div>
+          <div class="gesture-name">Pinch</div>
+          <div class="gesture-desc">Click / Select</div>
+        </div>
+      </div>
+      <div class="gesture-chip">
+        <span class="gesture-emoji">🖐️</span>
+        <div>
+          <div class="gesture-name">Open Palm</div>
+          <div class="gesture-desc">Pause / Idle</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const uploadProgress = document.getElementById('uploadProgress');
+const progressLabel = document.getElementById('progressLabel');
+const progressFill = document.getElementById('progressFill');
+const progressSub = document.getElementById('progressSub');
+
+// Drag & drop
+dropZone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropZone.classList.add('drag-over');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('drag-over');
+  const file = e.dataTransfer.files[0];
+  if (file) uploadFile(file);
+});
+fileInput.addEventListener('change', e => {
+  if (e.target.files[0]) uploadFile(e.target.files[0]);
+});
+
+function uploadFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  // Show progress
+  dropZone.style.display = 'none';
+  uploadProgress.style.display = 'block';
+  progressLabel.textContent = `Uploading ${file.name}…`;
+
+  // Animate progress bar
+  let pct = 0;
+  const bar = setInterval(() => {
+    pct = Math.min(pct + Math.random() * 8, 85);
+    progressFill.style.width = pct + '%';
+  }, 200);
+
+  fetch('/upload', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+      clearInterval(bar);
+      if (data.success) {
+        progressFill.style.width = '100%';
+        progressLabel.textContent = `✓ Loaded ${data.total_slides} slides`;
+        progressSub.textContent = 'Redirecting to viewer…';
+        setTimeout(() => window.location.href = '/viewer', 900);
+      } else {
+        showError(data.error || 'Upload failed');
+      }
+    })
+    .catch(err => {
+      clearInterval(bar);
+      showError('Server error — is Flask running?');
+    });
+}
+
+function showError(msg) {
+  dropZone.style.display = 'flex';
+  uploadProgress.style.display = 'none';
+  const err = document.createElement('div');
+  err.className = 'error-msg';
+  err.textContent = '⚠ ' + msg;
+  dropZone.appendChild(err);
+}
+</script>
+</body>
+</html>
