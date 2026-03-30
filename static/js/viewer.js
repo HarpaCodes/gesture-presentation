@@ -246,7 +246,7 @@ const gestureIdMap = {
   palm:  'g-palm',
 };
 const gestureLabelMap = {
-  next:    '☝ Next',
+  next:    '👍 Next',
   prev:    '✌ Previous',
   fist:    '✊ Fist',
   point:   '👆 Pointer',

@@ -145,12 +145,17 @@ function recognizeGesture(lm) {
   const ringUp   = fingerUp(16, 14);
   const pinkyUp  = fingerUp(20, 18);
 
+  // Thumbs up: thumb tip above thumb IP joint and above wrist, all fingers curled
+  const thumbUp = lm[4].y < lm[3].y && lm[4].y < lm[0].y;
+
   const pinchDist = _dist(lm[4], lm[8]);
   if (pinchDist < 0.07) return 'pinch';
 
+  // Thumbs up → next (must come before fist check since fingers are also curled)
+  if (thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) return 'next';
+
   if (!indexUp && !middleUp && !ringUp && !pinkyUp) return 'fist';
   if (indexUp && middleUp && ringUp && pinkyUp) return 'palm';
-  if (indexUp && !middleUp && !ringUp && !pinkyUp) return 'next';
   if (indexUp && middleUp && !ringUp && !pinkyUp) return 'prev';
   if (indexUp) return 'point';
 
