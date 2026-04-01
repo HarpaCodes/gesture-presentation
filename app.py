@@ -24,6 +24,34 @@ state = {
     "presentation_name": ""
 }
 
+
+def scan_existing_slides():
+    """
+    Scan the slides/current directory for any PNG files already on disk.
+    Called at startup so that state is restored after a Flask reload or
+    server restart — slides are never lost just because the process restarted.
+    """
+    slides_dir = os.path.join(SLIDES_FOLDER, 'current')
+    if not os.path.isdir(slides_dir):
+        return
+    pngs = sorted(
+        f for f in os.listdir(slides_dir)
+        if f.lower().endswith('.png')
+    )
+    if not pngs:
+        return
+    slides = [f'slides/current/{f}' for f in pngs]
+    state.update({
+        "slides": slides,
+        "total_slides": len(slides),
+        "current_slide": min(state["current_slide"], len(slides) - 1),
+    })
+    print(f"↺ Restored {len(slides)} slides from disk on startup.")
+
+
+# Restore any slides that are already on disk (survives Flask debug reloads)
+scan_existing_slides()
+
 ALLOWED_EXTENSIONS = {'pdf', 'ppt', 'pptx', 'png', 'jpg', 'jpeg'}
 
 def allowed_file(filename):
@@ -76,8 +104,27 @@ def convert_pptx_to_pdf(filepath, filename):
     pdf_name = filename.rsplit('.', 1)[0] + '.pdf'
     pdf_path = os.path.join(UPLOAD_FOLDER, pdf_name)
 
-    # Method 1: LibreOffice (if installed)
-    for lo_cmd in ['libreoffice', 'soffice', '/Applications/LibreOffice.app/Contents/MacOS/soffice']:
+    # Method 1: Windows COM automation via PowerPoint (works on any Windows + Office install)
+    try:
+        import comtypes.client
+        powerpoint = comtypes.client.CreateObject('Powerpoint.Application')
+        powerpoint.Visible = 1
+        abs_in  = os.path.abspath(filepath)
+        abs_out = os.path.abspath(pdf_path)
+        deck = powerpoint.Presentations.Open(abs_in, WithWindow=False)
+        deck.SaveAs(abs_out, 32)  # 32 = ppSaveAsPDF
+        deck.Close()
+        powerpoint.Quit()
+        if os.path.exists(pdf_path):
+            print("✓ PPTX→PDF via Windows PowerPoint COM")
+            return pdf_path
+    except Exception as e:
+        print(f"Windows COM conversion failed (PowerPoint not installed?): {e}")
+
+    # Method 2: LibreOffice (cross-platform, if installed)
+    for lo_cmd in ['libreoffice', 'soffice',
+                   r'C:\Program Files\LibreOffice\program\soffice.exe',
+                   '/Applications/LibreOffice.app/Contents/MacOS/soffice']:
         try:
             result = subprocess.run(
                 [lo_cmd, '--headless', '--convert-to', 'pdf',
@@ -91,7 +138,6 @@ def convert_pptx_to_pdf(filepath, filename):
         except (FileNotFoundError, subprocess.TimeoutExpired):
             continue
 
-    # Method 2: macOS qlmanage (QuickLook — generates thumbnails, limited)
     # Method 3: unoconv
     try:
         result = subprocess.run(
@@ -216,12 +262,13 @@ def convert_pptx_thumbnails(filepath, slides_dir):
                         color = (rgb.r, rgb.g, rgb.b)
                     except: pass
 
-                    # Try system fonts
+                    # Try common system fonts
                     font = None
                     for font_path in [
+                        'C:\\Windows\\Fonts\\arial.ttf',
+                        'C:\\Windows\\Fonts\\calibri.ttf',
                         '/System/Library/Fonts/Helvetica.ttc',
                         '/System/Library/Fonts/Arial.ttf',
-                        '/Library/Fonts/Arial.ttf',
                         '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
                     ]:
                         try:
@@ -243,9 +290,18 @@ def convert_pptx_thumbnails(filepath, slides_dir):
             draw.rectangle([0, H-36, W, H], fill=(20, 30, 50))
             try:
                 from PIL import ImageFont
-                fn = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 18)
-                draw.text((W//2, H-18), f"Slide {idx+1} of {len(prs.slides)}",
-                          fill=(100,150,200), font=fn, anchor='mm')
+                fn = None
+                for fp in ['C:\\Windows\\Fonts\\arial.ttf', '/System/Library/Fonts/Helvetica.ttc']:
+                    try:
+                        fn = ImageFont.truetype(fp, 18)
+                        break
+                    except: continue
+                
+                if fn:
+                    draw.text((W//2, H-18), f"Slide {idx+1} of {len(prs.slides)}",
+                              fill=(100,150,200), font=fn, anchor='mm')
+                else:
+                    draw.text((W//2 - 40, H-28), f"Slide {idx+1}", fill=(100,150,200))
             except:
                 draw.text((W//2 - 40, H-28), f"Slide {idx+1}", fill=(100,150,200))
 
@@ -275,8 +331,14 @@ def generate_demo_slides(slides_dir):
             draw = ImageDraw.Draw(img)
             draw.rectangle([0,0,1280,720], outline=acc, width=6)
             try:
-                f1 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 52)
-                f2 = ImageFont.truetype('/System/Library/Fonts/Helvetica.ttc', 28)
+                # Add Windows font paths for demo slide rendering
+                f1 = None
+                for fp in ['C:\\Windows\\Fonts\\arial.ttf', '/System/Library/Fonts/Helvetica.ttc']:
+                    try:
+                        f1 = ImageFont.truetype(fp, 52)
+                        f2 = ImageFont.truetype(fp, 28)
+                        break
+                    except: continue
             except:
                 f1 = f2 = None
             if f1:
@@ -341,7 +403,34 @@ def serve_slide(filename):
 
 @app.route('/state')
 def get_state():
+    # Always reflect the true number of slides that are on disk,
+    # in case state drifted (e.g. partial upload, manual file ops).
+    slides_dir = os.path.join(SLIDES_FOLDER, 'current')
+    if os.path.isdir(slides_dir):
+        on_disk = len([
+            f for f in os.listdir(slides_dir)
+            if f.lower().endswith('.png')
+        ])
+        if on_disk != state["total_slides"] and on_disk > 0:
+            scan_existing_slides()
     return jsonify(state)
+
+
+@app.route('/slides/refresh', methods=['POST'])
+def refresh_slides():
+    """
+    Force a rescan of the slides directory and update state.
+    Useful when slides were added/converted outside of an upload call,
+    or after a server restart without re-uploading.
+    """
+    scan_existing_slides()
+    return jsonify({
+        "success": True,
+        "total_slides": state["total_slides"],
+        "current_slide": state["current_slide"],
+        "slides": state["slides"],
+        "message": f"Rescanned: {state['total_slides']} slides found"
+    })
 
 
 @app.route('/gesture', methods=['POST'])
@@ -349,7 +438,7 @@ def handle_gesture():
     data = request.get_json(silent=True) or {}
     gesture = data.get("gesture", "")
 
-    if state["locked"] and gesture != "fist":
+    if state["locked"]:
         return jsonify({"status": "locked", "current_slide": state["current_slide"], "locked": True, "changed": False})
 
     changed = False
@@ -357,8 +446,6 @@ def handle_gesture():
         state["current_slide"] += 1; changed = True
     elif gesture == "prev" and state["current_slide"] > 0:
         state["current_slide"] -= 1; changed = True
-    elif gesture == "fist":
-        state["locked"] = not state["locked"]; changed = True
 
     return jsonify({"status": "ok", "current_slide": state["current_slide"],
                     "locked": state["locked"], "changed": changed})

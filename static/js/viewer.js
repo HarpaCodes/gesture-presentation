@@ -240,7 +240,6 @@ function toggleCamera() {
 const gestureIdMap = {
   next:  'g-next',
   prev:  'g-prev',
-  fist:  'g-fist',
   point: 'g-point',
   pinch: 'g-pinch',
   palm:  'g-palm',
@@ -248,7 +247,6 @@ const gestureIdMap = {
 const gestureLabelMap = {
   next:    '👍 Next',
   prev:    '✌ Previous',
-  fist:    '✊ Fist',
   point:   '👆 Pointer',
   pinch:   '🤏 Pinch',
   palm:    '🖐 Open Palm',

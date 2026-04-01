@@ -151,10 +151,9 @@ function recognizeGesture(lm) {
   const pinchDist = _dist(lm[4], lm[8]);
   if (pinchDist < 0.07) return 'pinch';
 
-  // Thumbs up → next (must come before fist check since fingers are also curled)
+
   if (thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) return 'next';
 
-  if (!indexUp && !middleUp && !ringUp && !pinkyUp) return 'fist';
   if (indexUp && middleUp && ringUp && pinkyUp) return 'palm';
   if (indexUp && middleUp && !ringUp && !pinkyUp) return 'prev';
   if (indexUp) return 'point';
@@ -172,7 +171,7 @@ function _handleGestureLogic(gesture, landmarks) {
 
   if (GestureEngine.onGesture) GestureEngine.onGesture(gesture, landmarks);
 
-  const triggerGestures = ['next', 'prev', 'fist'];
+  const triggerGestures = ['next', 'prev'];
   if (!triggerGestures.includes(gesture)) return;
 
   if (gesture !== GestureEngine.lastGesture) {

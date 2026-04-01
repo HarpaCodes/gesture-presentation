@@ -58,9 +58,6 @@ def recognize_gesture(hand_landmarks):
     if dist(lm, 4, 8) < 0.06:
         return 'pinch'
 
-    # Fist
-    if not index_up and not middle_up and not ring_up and not pinky_up:
-        return 'fist'
 
     # Open palm
     if index_up and middle_up and ring_up and pinky_up:
@@ -141,7 +138,7 @@ def main():
             if gesture != last_gesture:
                 last_gesture  = gesture
                 gesture_start = now
-            elif gesture in ('next', 'prev', 'fist'):
+            elif gesture in ('next', 'prev'):
                 hold = now - gesture_start
                 cooldown_ok = (now - last_trigger) >= COOLDOWN
                 if hold >= HOLD_THRESHOLD and cooldown_ok:
@@ -155,7 +152,7 @@ def main():
             cv2.putText(frame, f"Gesture: {gesture.upper()}",
                         (10, 34), cv2.FONT_HERSHEY_SIMPLEX, 0.9, color, 2)
 
-            if gesture in ('next', 'prev', 'fist'):
+            if gesture in ('next', 'prev'):
                 hold_pct = min((now - gesture_start) / HOLD_THRESHOLD, 1.0)
                 bar_w    = int(hold_pct * 200)
                 cv2.rectangle(frame, (10, 50), (210, 64), (40,40,40), -1)
