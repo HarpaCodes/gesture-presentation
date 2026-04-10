@@ -1,7 +1,11 @@
 /**
  * gesture.js — MediaPipe Hand Tracking + Gesture Recognition
  * Robust version: handles CDN load failures, multiple init strategies.
+ * Supports Presentation Mode and Whiteboard Mode gestures.
  */
+
+// ─── Global Mode (set by viewer.js) ──────────────────────────────────────────
+window.gestureCurrentMode = 'presentation'; // 'presentation' | 'whiteboard'
 
 // ─── Engine State ────────────────────────────────────────────────────────────
 const GestureEngine = {
@@ -151,15 +155,26 @@ function recognizeGesture(lm) {
   const pinchDist = _dist(lm[4], lm[8]);
   if (pinchDist < 0.07) return 'pinch';
 
+  // Rock/ILY gesture: index + pinky up, middle + ring down.
+  // Checked BEFORE palm (which needs all 4 up) to avoid misclassification.
+  if (indexUp && pinkyUp && !middleUp && !ringUp) return 'rock';
 
   if (thumbUp && !indexUp && !middleUp && !ringUp && !pinkyUp) return 'next';
 
   if (indexUp && middleUp && ringUp && pinkyUp) return 'palm';
-  if (indexUp && middleUp && !ringUp && !pinkyUp) return 'prev';
+
+  // Draw gesture: index + middle up AND touching (joined)
+  if (indexUp && middleUp && !ringUp && !pinkyUp) {
+    const indexMiddleDist = _dist(lm[8], lm[12]);
+    if (indexMiddleDist < 0.06) return 'draw';
+    return 'prev'; // fingers spread apart = previous slide
+  }
+
   if (indexUp) return 'point';
 
   return 'unknown';
 }
+
 
 function _dist(a, b) {
   return Math.sqrt((a.x - b.x) ** 2 + (a.y - b.y) ** 2);

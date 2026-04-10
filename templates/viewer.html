@@ -8,7 +8,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
-<body class="viewer-body">
+<body class="viewer-body mode-presentation">
 
 <div class="viewer-layout">
 
@@ -35,6 +35,8 @@
       </div>
       <!-- Laser pointer dot -->
       <div class="laser-dot" id="laserDot"></div>
+      <!-- Whiteboard canvas overlay -->
+      <canvas id="whiteboardCanvas" class="whiteboard-layer"></canvas>
       <!-- Lock overlay -->
       <div class="lock-overlay" id="lockOverlay" style="display:none">
         <div class="lock-icon">🔒</div>
@@ -71,6 +73,19 @@
       <button class="btn-cam" id="camBtn" onclick="toggleCamera()">📷 Start Camera</button>
     </div>
 
+    <!-- Mode Toggle -->
+    <div class="mode-section">
+      <div class="sidebar-label">Mode</div>
+      <div class="mode-toggle-wrap">
+        <button class="mode-btn active" id="modePresentBtn" onclick="switchMode('presentation')">
+          <span class="mode-icon">🖥️</span> Presentation
+        </button>
+        <button class="mode-btn" id="modeWhiteboardBtn" onclick="switchMode('whiteboard')">
+          <span class="mode-icon">🎨</span> Whiteboard
+        </button>
+      </div>
+    </div>
+
     <!-- Gesture Guide -->
     <div class="guide-section">
       <div class="sidebar-label">Gesture Guide</div>
@@ -99,14 +114,7 @@
           </div>
           <div class="g-indicator" id="gi-point"></div>
         </div>
-        <div class="gesture-row" id="g-pinch">
-          <span class="g-icon">🤏</span>
-          <div class="g-info">
-            <div class="g-name">Pinch</div>
-            <div class="g-action">Click / Select</div>
-          </div>
-          <div class="g-indicator" id="gi-pinch"></div>
-        </div>
+
         <div class="gesture-row" id="g-palm">
           <span class="g-icon">🖐️</span>
           <div class="g-info">
@@ -114,6 +122,47 @@
             <div class="g-action">Fullscreen Slideshow</div>
           </div>
           <div class="g-indicator" id="gi-palm"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Whiteboard Gesture Guide (hidden initially) -->
+    <div class="guide-section whiteboard-guide" id="whiteboardGuide" style="display:none">
+      <div class="sidebar-label">Whiteboard Gestures</div>
+      <div class="gesture-list">
+        <div class="gesture-row" id="g-draw">
+          <span class="g-icon">✌️</span>
+          <div class="g-info">
+            <div class="g-name">Fingers Joined</div>
+            <div class="g-action">Draw on Canvas</div>
+          </div>
+          <div class="g-indicator" id="gi-draw"></div>
+        </div>
+        <div class="gesture-row" id="g-rock">
+          <span class="g-icon">🤘</span>
+          <div class="g-info">
+            <div class="g-name">Rock Sign (Hold)</div>
+            <div class="g-action">Clear All Drawings</div>
+          </div>
+          <div class="g-indicator" id="gi-rock"></div>
+        </div>
+
+      </div>
+      <!-- Color Picker -->
+      <div class="wb-tools">
+        <div class="sidebar-label" style="margin-top:14px">Pen Color</div>
+        <div class="color-picker">
+          <button class="color-dot active" data-color="#00d4ff" style="background:#00d4ff" onclick="setWBColor(this,'#00d4ff')"></button>
+          <button class="color-dot" data-color="#e94560" style="background:#e94560" onclick="setWBColor(this,'#e94560')"></button>
+          <button class="color-dot" data-color="#00ff88" style="background:#00ff88" onclick="setWBColor(this,'#00ff88')"></button>
+          <button class="color-dot" data-color="#ffaa00" style="background:#ffaa00" onclick="setWBColor(this,'#ffaa00')"></button>
+          <button class="color-dot" data-color="#ffffff" style="background:#ffffff" onclick="setWBColor(this,'#ffffff')"></button>
+        </div>
+        <div class="wb-actions">
+          <button class="wb-action-btn" onclick="wbUndo()">↩ Undo</button>
+          <button class="wb-action-btn" onclick="wbRedo()">↪ Redo</button>
+          <button class="wb-action-btn danger" onclick="wbClear()">🗑 Clear</button>
+          <button class="wb-action-btn" onclick="wbSave()">💾 Save</button>
         </div>
       </div>
     </div>
@@ -150,6 +199,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3/drawing_utils.js" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands@0.4/hands.js" crossorigin="anonymous"></script>
 <script src="/static/js/gesture.js"></script>
+<script src="/static/js/whiteboard.js"></script>
 <script src="/static/js/viewer.js"></script>
 </body>
 </html>

@@ -11,6 +11,7 @@ let appState = {
   locked: false,
   cameraRunning: false,
   lastGesture: 'none',
+  mode: 'presentation', // 'presentation' | 'whiteboard'
 };
 
 // ─── On page load ────────────────────────────────────────────────────────────
@@ -243,6 +244,8 @@ const gestureIdMap = {
   point: 'g-point',
   pinch: 'g-pinch',
   palm:  'g-palm',
+  draw:  'g-draw',
+  rock:  'g-rock',
 };
 const gestureLabelMap = {
   next:    '👍 Next',
@@ -250,6 +253,8 @@ const gestureLabelMap = {
   point:   '👆 Pointer',
   pinch:   '🤏 Pinch',
   palm:    '🖐 Open Palm',
+  draw:    '✌️ Drawing',
+  rock:    '🤘 Rock — Clear All',
   none:    'No hand',
   unknown: 'Unknown',
 };
@@ -265,6 +270,33 @@ function onGestureDetected(gesture, landmarks) {
   document.getElementById('statGesture').textContent =
     (gestureLabelMap[gesture] || gesture).replace(/^[^\s]+ /, '');
 
+  // ── WHITEBOARD MODE ──────────────────────────────────────────────────
+  if (appState.mode === 'whiteboard') {
+    // Only highlight whiteboard gesture rows
+    if (lastActiveRow) lastActiveRow.classList.remove('active');
+    const wbRowId = gesture === 'draw'  ? 'g-draw'
+                  : gesture === 'rock'  ? 'g-rock'
+                  : null;
+    if (wbRowId) {
+      const row = document.getElementById(wbRowId);
+      if (row) { row.classList.add('active'); lastActiveRow = row; }
+    }
+
+    // Open Palm → Fullscreen slideshow in Whiteboard Mode too
+    if (gesture === 'palm') {
+      if (!window._palmTriggered) {
+        window._palmTriggered = true;
+        toggleFullscreen();
+        setTimeout(() => { window._palmTriggered = false; }, 2000);
+      }
+    }
+
+    // Delegate to Whiteboard module — do NOT navigate slides
+    if (typeof Whiteboard !== 'undefined') Whiteboard.handleGesture(gesture, landmarks);
+    return;
+  }
+
+  // ── PRESENTATION MODE ────────────────────────────────────────────────
   // Highlight gesture row
   if (lastActiveRow) lastActiveRow.classList.remove('active');
   const rowId = gestureIdMap[gesture];
@@ -312,6 +344,11 @@ function onGestureDetected(gesture, landmarks) {
 // ─── Keyboard Navigation ────────────────────────────────────────────────────
 document.addEventListener('keydown', e => {
   if (appState.locked) return;
+  if (appState.mode === 'whiteboard') {
+    // Keyboard shortcuts for whiteboard
+    if (e.key === 'z' || e.key === 'Z') { e.ctrlKey ? wbUndo() : null; }
+    return; // block slide nav in whiteboard mode
+  }
   if (e.key === 'ArrowRight' || e.key === ' ') {
     e.preventDefault(); changeSlide('next');
   }
@@ -321,6 +358,41 @@ document.addEventListener('keydown', e => {
   if (e.key === 'l' || e.key === 'L') toggleLock();
   if (e.key === 'c' || e.key === 'C') toggleCamera();
 });
+
+// ─── Mode Switching ────────────────────────────────────────────────────────
+function switchMode(mode) {
+  appState.mode = mode;
+  window.gestureCurrentMode = mode;
+
+  // Body class for CSS
+  document.body.classList.remove('mode-presentation', 'mode-whiteboard');
+  document.body.classList.add('mode-' + mode);
+
+  // Update buttons
+  const presentBtn    = document.getElementById('modePresentBtn');
+  const whiteboardBtn = document.getElementById('modeWhiteboardBtn');
+  if (presentBtn && whiteboardBtn) {
+    presentBtn.classList.toggle('active', mode === 'presentation');
+    whiteboardBtn.classList.toggle('active', mode === 'whiteboard');
+    whiteboardBtn.classList.toggle('wb', mode === 'whiteboard');
+  }
+
+  // Show/hide gesture guides
+  const presentGuide    = document.querySelector('.guide-section:not(.whiteboard-guide)');
+  const whiteboardGuide = document.getElementById('whiteboardGuide');
+  if (presentGuide)    presentGuide.style.display    = mode === 'presentation' ? '' : 'none';
+  if (whiteboardGuide) whiteboardGuide.style.display = mode === 'whiteboard'   ? '' : 'none';
+
+  // Engage/disengage Whiteboard module
+  if (typeof Whiteboard !== 'undefined') {
+    if (mode === 'whiteboard') Whiteboard.enable();
+    else                       Whiteboard.disable();
+  }
+
+  // Status badge colour
+  const text = document.getElementById('statusText');
+  if (text) text.textContent = mode === 'whiteboard' ? 'WHITEBOARD' : 'ACTIVE';
+}
 
 // ─── Fullscreen support ───────────────────────────────────────────────────────
 let isFullscreen = false;
